@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+	"path"
+	"mime"
 	"code.google.com/p/google-api-go-client/drive/v2"
 	"code.google.com/p/goauth2/oauth"
 	"errors"
@@ -22,30 +25,50 @@ var config = &oauth.Config{
 
 func main() {
 
-	var service *drive.Service
+	var err error
+
+	err = uploadFile("2015_06_07_codeBackup.tar.xz", "stagger")
+	if(err != nil) {
+		msg := fmt.Sprintf("%s", err)
+		fmt.Fprintf(os.Stderr, msg)
+	}
+}
+
+func uploadFile(sourceFilePath string, parentFolderName string) (error) {
+
 	var storedFiles []*drive.File
+	var service *drive.Service
+	var parentFolderId string
 	var err error
 
 	service, err = createServiceClient()
 
 	if(err != nil) {
 		msg := fmt.Sprintf("Unable to authenticate with Drive: %s\n", err)
-		fmt.Fprintf(os.Stderr, msg)
-		return
+		return errors.New(msg)
 	}
 
-	storedFiles, err = retrieveBackupFileList(service, "backups")
+	// if the user wants a parent folder, find its id.
+	if(parentFolderName != "") {
 
-	if(err != nil) {
-		msg := fmt.Sprintf("Unable to get list of files: %s\n", err)
-		fmt.Fprintf(os.Stderr, msg)
-		return
+		storedFiles, err = retrieveFileList(service)
+		if(err != nil) {
+			msg := fmt.Sprintf("Unable to get list of files from Drive: %s\n", err)
+			return errors.New(msg)
+		}
+
+		parentFolderId = findFileId(storedFiles, parentFolderName)
+
+		if(parentFolderId == "") {
+
+			msg := fmt.Sprintf("Unable to find parent folder named '%s'\n", parentFolderName)
+			return errors.New(msg)
+		}
+	} else {
+		parentFolderId = ""
 	}
 
-	for _, file := range(storedFiles) {
-
-		fmt.Printf("%d: %s\n", file.FileSize, file.Title)
-	}
+	return uploadLocalFile(service, sourceFilePath, parentFolderId)
 }
 
 func createServiceClient() (*drive.Service, error) {
@@ -113,7 +136,7 @@ func authenticateTransport(transport *oauth.Transport) (error) {
 	return nil
 }
 
-func retrieveBackupFileList(service *drive.Service, path string) ([]*drive.File, error) {
+func retrieveFileList(service *drive.Service) ([]*drive.File, error) {
 
 	var ret []*drive.File
 	var listQuery *drive.FilesListCall
@@ -145,4 +168,66 @@ func retrieveBackupFileList(service *drive.Service, path string) ([]*drive.File,
 	}
 
 	return ret, nil
+}
+
+func findFileId(storedFiles []*drive.File, fileName string) (string) {
+
+	var file *drive.File
+
+	for _, file = range(storedFiles) {
+
+		if(file.Title == fileName) {
+			return file.Id
+		}
+	}
+
+	return ""
+}
+
+func uploadLocalFile(service *drive.Service, sourceFilePath string, parentFolderId string) (error) {
+
+	// upload.
+	var fileName string
+	var mimeType string
+
+	m, err := os.Open(sourceFilePath)
+
+	if err != nil {
+		return err
+	}
+
+	fileName = path.Base(sourceFilePath)
+	mimeType = determineMimeType(fileName)
+
+	f := &drive.File{
+		Title: fileName,
+		MimeType: mimeType,
+	}
+
+	if parentFolderId != "" {
+		p := &drive.ParentReference{
+			Id: parentFolderId,
+		}
+		f.Parents = []*drive.ParentReference{p}
+	}
+
+	_, err = service.Files.Insert(f).Media(m).Do()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+/*
+	Figures out and returns the mime type of the given [filePath].
+	This generally defers to mime.TypeByExtension, but if this is a "*.tar.*"
+	archive, it will return the mime type for "compressed".
+*/
+func determineMimeType(filePath string) (string) {
+
+	if(strings.Contains(filePath, ".tar.")) {
+		return "application/x-gzip"
+	}
+
+	return mime.TypeByExtension(path.Ext(filePath))
 }

@@ -1,3 +1,6 @@
 output/
 pkg/
 src/
+
+# Used for temporarily holding test stuff.
+t.txt
