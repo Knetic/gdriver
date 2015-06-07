@@ -1,24 +1,24 @@
 package main
 
 import (
+	"code.google.com/p/goauth2/oauth"
+	"code.google.com/p/google-api-go-client/drive/v2"
+	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"os"
-	"strings"
 	"path"
-	"mime"
-	"code.google.com/p/google-api-go-client/drive/v2"
-	"code.google.com/p/goauth2/oauth"
-	"errors"
+	"strings"
 )
 
 var config = &oauth.Config{
-	ClientId: "179778203598-f4ntihkomqs6c4jbeehadpil35sfv8ea.apps.googleusercontent.com",
+	ClientId:     "179778203598-f4ntihkomqs6c4jbeehadpil35sfv8ea.apps.googleusercontent.com",
 	ClientSecret: "KOknojIaqFBMG1EDI8ht-ozR",
-	Scope:"https://www.googleapis.com/auth/drive",
-	RedirectURL:"urn:ietf:wg:oauth:2.0:oob",
-	AuthURL:"https://accounts.google.com/o/oauth2/auth",
-	TokenURL: "https://accounts.google.com/o/oauth2/token",
+	Scope:        "https://www.googleapis.com/auth/drive",
+	RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
+	AuthURL:      "https://accounts.google.com/o/oauth2/auth",
+	TokenURL:     "https://accounts.google.com/o/oauth2/token",
 
 	AccessType: "offline",
 }
@@ -28,13 +28,13 @@ func main() {
 	var err error
 
 	err = uploadFile("2015_06_07_codeBackup.tar.xz", "stagger")
-	if(err != nil) {
+	if err != nil {
 		msg := fmt.Sprintf("%s", err)
 		fmt.Fprintf(os.Stderr, msg)
 	}
 }
 
-func uploadFile(sourceFilePath string, parentFolderName string) (error) {
+func uploadFile(sourceFilePath string, parentFolderName string) error {
 
 	var storedFiles []*drive.File
 	var service *drive.Service
@@ -43,23 +43,23 @@ func uploadFile(sourceFilePath string, parentFolderName string) (error) {
 
 	service, err = createServiceClient()
 
-	if(err != nil) {
+	if err != nil {
 		msg := fmt.Sprintf("Unable to authenticate with Drive: %s\n", err)
 		return errors.New(msg)
 	}
 
 	// if the user wants a parent folder, find its id.
-	if(parentFolderName != "") {
+	if parentFolderName != "" {
 
 		storedFiles, err = retrieveFileList(service)
-		if(err != nil) {
+		if err != nil {
 			msg := fmt.Sprintf("Unable to get list of files from Drive: %s\n", err)
 			return errors.New(msg)
 		}
 
 		parentFolderId = findFileId(storedFiles, parentFolderName)
 
-		if(parentFolderId == "") {
+		if parentFolderId == "" {
 
 			msg := fmt.Sprintf("Unable to find parent folder named '%s'\n", parentFolderName)
 			return errors.New(msg)
@@ -78,7 +78,7 @@ func createServiceClient() (*drive.Service, error) {
 	var err error
 
 	transport = &oauth.Transport{
-		Config: config,
+		Config:    config,
 		Transport: http.DefaultTransport,
 	}
 
@@ -94,7 +94,7 @@ func createServiceClient() (*drive.Service, error) {
 	return service, nil
 }
 
-func authenticateTransport(transport *oauth.Transport) (error) {
+func authenticateTransport(transport *oauth.Transport) error {
 
 	var tokenCache oauth.CacheFile
 	var token *oauth.Token
@@ -108,7 +108,7 @@ func authenticateTransport(transport *oauth.Transport) (error) {
 
 		token, err = tokenCache.Token()
 
-		if(err != nil) {
+		if err != nil {
 			msg := fmt.Sprintf("Unable to read token: %s\n", err)
 			return errors.New(msg)
 		}
@@ -150,19 +150,19 @@ func retrieveFileList(service *drive.Service) ([]*drive.File, error) {
 		listQuery = service.Files.List()
 
 		// if we're on a new page, use it in the query
-		if(pageToken != "") {
+		if pageToken != "" {
 			listQuery = listQuery.PageToken(pageToken)
 		}
 
 		files, err = listQuery.Do()
-		if(err != nil) {
+		if err != nil {
 			return nil, err
 		}
 
 		ret = append(ret, files.Items...)
 		pageToken = files.NextPageToken
 
-		if(pageToken == "") {
+		if pageToken == "" {
 			break
 		}
 	}
@@ -170,13 +170,13 @@ func retrieveFileList(service *drive.Service) ([]*drive.File, error) {
 	return ret, nil
 }
 
-func findFileId(storedFiles []*drive.File, fileName string) (string) {
+func findFileId(storedFiles []*drive.File, fileName string) string {
 
 	var file *drive.File
 
-	for _, file = range(storedFiles) {
+	for _, file = range storedFiles {
 
-		if(file.Title == fileName) {
+		if file.Title == fileName {
 			return file.Id
 		}
 	}
@@ -184,7 +184,7 @@ func findFileId(storedFiles []*drive.File, fileName string) (string) {
 	return ""
 }
 
-func uploadLocalFile(service *drive.Service, sourceFilePath string, parentFolderId string) (error) {
+func uploadLocalFile(service *drive.Service, sourceFilePath string, parentFolderId string) error {
 
 	// upload.
 	var fileName string
@@ -200,7 +200,7 @@ func uploadLocalFile(service *drive.Service, sourceFilePath string, parentFolder
 	mimeType = determineMimeType(fileName)
 
 	f := &drive.File{
-		Title: fileName,
+		Title:    fileName,
 		MimeType: mimeType,
 	}
 
@@ -223,9 +223,9 @@ func uploadLocalFile(service *drive.Service, sourceFilePath string, parentFolder
 	This generally defers to mime.TypeByExtension, but if this is a "*.tar.*"
 	archive, it will return the mime type for "compressed".
 */
-func determineMimeType(filePath string) (string) {
+func determineMimeType(filePath string) string {
 
-	if(strings.Contains(filePath, ".tar.")) {
+	if strings.Contains(filePath, ".tar.") {
 		return "application/x-gzip"
 	}
 
