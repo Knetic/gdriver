@@ -42,9 +42,9 @@ func main() {
 		return
 	}
 
-	for file, _ := range(storedFiles) {
+	for _, file := range(storedFiles) {
 
-		fmt.Printf("File: %v\n", file)
+		fmt.Printf("%d: %s\n", file.FileSize, file.Title)
 	}
 }
 
