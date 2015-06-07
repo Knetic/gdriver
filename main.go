@@ -6,6 +6,7 @@ import (
 	"os"
 	"code.google.com/p/google-api-go-client/drive/v2"
 	"code.google.com/p/goauth2/oauth"
+	"errors"
 )
 
 var config = &oauth.Config{
@@ -22,97 +23,126 @@ var config = &oauth.Config{
 func main() {
 
 	var service *drive.Service
+	var storedFiles []*drive.File
+	var err error
 
-	service = createServiceClient()
-	if(service == nil) {
+	service, err = createServiceClient()
+
+	if(err != nil) {
+		msg := fmt.Sprintf("Unable to authenticate with Drive: %s\n", err)
+		fmt.Fprintf(os.Stderr, msg)
 		return
 	}
 
-	files, _ := AllFiles(service)
+	storedFiles, err = retrieveBackupFileList(service, "backups")
 
-	for file, _ := range(files) {
+	if(err != nil) {
+		msg := fmt.Sprintf("Unable to get list of files: %s\n", err)
+		fmt.Fprintf(os.Stderr, msg)
+		return
+	}
+
+	for file, _ := range(storedFiles) {
 
 		fmt.Printf("File: %v\n", file)
 	}
 }
 
-func createServiceClient() (*drive.Service) {
+func createServiceClient() (*drive.Service, error) {
 
-	t := &oauth.Transport{
+	var transport *oauth.Transport
+	var service *drive.Service
+	var err error
+
+	transport = &oauth.Transport{
 		Config: config,
 		Transport: http.DefaultTransport,
 	}
 
-	authenticateTransport(t)
+	authenticateTransport(transport)
 
 	// Create a new authorized Drive client.
-	svc, err := drive.New(t.Client())
+	service, err = drive.New(transport.Client())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "An error occurred creating Drive client: %v\n", err)
-		return nil
+		msg := fmt.Sprintf("Unable to create drive client: %s\n", err)
+		return nil, errors.New(msg)
 	}
 
-	return svc
+	return service, nil
 }
 
-func authenticateTransport(transport *oauth.Transport) {
+func authenticateTransport(transport *oauth.Transport) (error) {
 
-	// cached?
 	var tokenCache oauth.CacheFile
+	var token *oauth.Token
+	var verificationCode string
+	var err error
 
 	tokenCache = "token.json"
 
+	// try to read cached token
 	if _, err := os.Stat("token.json"); !os.IsNotExist(err) {
 
-		token, err := tokenCache.Token()
+		token, err = tokenCache.Token()
+
 		if(err != nil) {
-			fmt.Fprintf(os.Stderr, "Unable to read token: %s\n", err)
-			return
+			msg := fmt.Sprintf("Unable to read token: %s\n", err)
+			return errors.New(msg)
 		}
-		if(token != nil) {
-			fmt.Printf("Using token: '%v'\n\n", token)
-			transport.Token = token
-			return
-		}
+
+		transport.Token = token
+		return nil
 	}
 
 	// not cached, prompt user.
 	authUrl := config.AuthCodeURL("state")
-	fmt.Printf("Go to the following link in your browser: %v\n", authUrl)
 
-	fmt.Printf("\nEnter verification code: ")
-	var code string
-	fmt.Scanln(&code)
+	fmt.Printf("Go to the following link in your browser: \n%v\n\n", authUrl)
+	fmt.Printf("Enter verification code: ")
 
-	freshToken, err := transport.Exchange(code)
+	fmt.Scanln(&verificationCode)
+
+	token, err = transport.Exchange(verificationCode)
+
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "An error occurred exchanging the code: %v\n", err)
-		return
+		msg := fmt.Sprintf("An error occurred exchanging the code: %v\n", err)
+		return errors.New(msg)
 	}
 
-	tokenCache.PutToken(freshToken)
+	tokenCache.PutToken(token)
+	return nil
 }
 
-// AllFiles fetches and displays all files
-func AllFiles(d *drive.Service) ([]*drive.File, error) {
-  var fs []*drive.File
-  pageToken := ""
-  for {
-    q := d.Files.List()
-    // If we have a pageToken set, apply it to the query
-    if pageToken != "" {
-      q = q.PageToken(pageToken)
-    }
-    r, err := q.Do()
-    if err != nil {
-      fmt.Printf("An error occurred: %v\n", err)
-      return fs, err
-    }
-    fs = append(fs, r.Items...)
-    pageToken = r.NextPageToken
-    if pageToken == "" {
-      break
-    }
-  }
-  return fs, nil
+func retrieveBackupFileList(service *drive.Service, path string) ([]*drive.File, error) {
+
+	var ret []*drive.File
+	var listQuery *drive.FilesListCall
+	var files *drive.FileList
+	var pageToken string
+	var err error
+
+	pageToken = ""
+
+	for {
+		listQuery = service.Files.List()
+
+		// if we're on a new page, use it in the query
+		if(pageToken != "") {
+			listQuery = listQuery.PageToken(pageToken)
+		}
+
+		files, err = listQuery.Do()
+		if(err != nil) {
+			return nil, err
+		}
+
+		ret = append(ret, files.Items...)
+		pageToken = files.NextPageToken
+
+		if(pageToken == "") {
+			break
+		}
+	}
+
+	return ret, nil
 }
