@@ -29,6 +29,7 @@ type GlobalFlags struct {
 
 func ParseGlobalFlags() (GlobalFlags) {
 
+	var help = flag.Bool("h", false, "Shows the possible flags")
 	var oauthPath = flag.String("c", "", "The path to the OAuth config json file to use")
 	var tokenPath = flag.String("t", getUserTokenPath(), "The path to the token cache file to use")
 	var verbList = flag.Bool("l", false, "Specifies that drive files should be listed")
@@ -36,6 +37,10 @@ func ParseGlobalFlags() (GlobalFlags) {
 	var verb OperationVerb
 
 	flag.Parse()
+
+	if(*help == true) {
+		flag.PrintDefaults()
+	}
 
 	verb = VERB_UNKNOWN
 
