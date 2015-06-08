@@ -8,7 +8,9 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"os/user"
 	"encoding/json"
+	"path/filepath"
 	"io/ioutil"
 	"path"
 	"strings"
@@ -139,13 +141,15 @@ func authenticateTransport(transport *oauth.Transport) error {
 
 	var tokenCache oauth.CacheFile
 	var token *oauth.Token
+	var tokenCachePath string
 	var verificationCode string
 	var err error
 
-	tokenCache = "token.json"
+	tokenCachePath = findTokenCachePath()
+	tokenCache = oauth.CacheFile(tokenCachePath)
 
 	// try to read cached token
-	if _, err := os.Stat("token.json"); !os.IsNotExist(err) {
+	if _, err := os.Stat(tokenCachePath); !os.IsNotExist(err) {
 
 		token, err = tokenCache.Token()
 
@@ -237,4 +241,20 @@ func determineMimeType(filePath string) string {
 	}
 
 	return mime.TypeByExtension(path.Ext(filePath))
+}
+
+func findTokenCachePath() (string) {
+
+	var currentUser *user.User
+	var ret string
+	var err error
+
+	currentUser, err = user.Current()
+	if(err != nil) {
+		return "token.json"
+	}
+
+	ret = fmt.Sprintf("%s/.oauth/token.json", currentUser.HomeDir)
+	ret = filepath.FromSlash(ret)
+	return ret
 }

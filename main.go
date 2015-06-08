@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"os"
 	"errors"
+	"path/filepath"
 	"os/user"
 )
 
 func main() {
 
-	var globals GlobalFlags;
-	var verb OperationVerb
+	var globals GlobalFlags
 	var err error
 
-	if(len(os.Args) <= 1) {
-		fmt.Fprintf(os.Stderr, "No verb specified\n")
+	globals = ParseGlobalFlags()
+
+	if(globals.Verb == VERB_UNKNOWN) {
+		fmt.Fprintf(os.Stderr, "No action specified\n")
 		return
 	}
-
-	globals = ParseGlobalFlags()
 
 	if(globals.OAuthConfigPath == "") {
 		err = loadConfig()
@@ -33,14 +33,7 @@ func main() {
 		return
 	}
 
-	verb, err = ParseOperationVerb(os.Args[1])
-	if(err != nil) {
-		msg := fmt.Sprintf("%s\n", err)
-		fmt.Fprintf(os.Stderr, msg)
-		return
-	}
-
-	switch(verb) {
+	switch(globals.Verb) {
 		case VERB_LIST: err = ListDriveFiles()
 		case VERB_PUSH: err = PushDriveFile()
 		default: err = errors.New("Verb not yet supported")
@@ -72,10 +65,12 @@ func loadConfig() (error) {
 
 	currentUser, err = user.Current()
 	if(err != nil) {
+		fmt.Printf("Error getting user\n")
 		return err
 	}
 
 	homePath = fmt.Sprintf("%s/.oauth/oauth.json", currentUser.HomeDir)
+	homePath = filepath.FromSlash(homePath)
 
 	err = LoadOAuthConfig(homePath)
 	if(err == nil) {
