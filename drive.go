@@ -3,16 +3,16 @@ package main
 import (
 	"code.google.com/p/goauth2/oauth"
 	"code.google.com/p/google-api-go-client/drive/v2"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
 	"os/user"
-	"encoding/json"
-	"path/filepath"
-	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,19 +22,19 @@ var config *oauth.Config
 	Attempts to load an OAuth config from the given [filePath]
 	returns an error if unable, otherwise uses this config for future requests.
 */
-func LoadOAuthConfig(filePath string) (error) {
+func LoadOAuthConfig(filePath string) error {
 
 	var newConfig oauth.Config
 	var contents []byte
 	var err error
 
 	contents, err = ioutil.ReadFile(filePath)
-	if(err != nil) {
+	if err != nil {
 		return err
 	}
 
 	err = json.Unmarshal(contents, &newConfig)
-	if(err != nil) {
+	if err != nil {
 		fmt.Printf("json parse error: %v", err)
 		return err
 	}
@@ -243,14 +243,14 @@ func determineMimeType(filePath string) string {
 	return mime.TypeByExtension(path.Ext(filePath))
 }
 
-func findTokenCachePath() (string) {
+func findTokenCachePath() string {
 
 	var currentUser *user.User
 	var ret string
 	var err error
 
 	currentUser, err = user.Current()
-	if(err != nil) {
+	if err != nil {
 		return "token.json"
 	}
 

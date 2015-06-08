@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"os/user"
 )
 
@@ -10,8 +10,8 @@ import (
 	Describes the operations that can be performed with this tool.
 */
 type OperationVerb int
-const (
 
+const (
 	VERB_UNKNOWN OperationVerb = iota
 	VERB_LIST
 	VERB_PUSH
@@ -23,11 +23,11 @@ const (
 */
 type GlobalFlags struct {
 	OAuthConfigPath string
-	TokenPath string
-	Verb OperationVerb
+	TokenPath       string
+	Verb            OperationVerb
 }
 
-func ParseGlobalFlags() (GlobalFlags) {
+func ParseGlobalFlags() GlobalFlags {
 
 	var help = flag.Bool("h", false, "Shows the possible flags")
 	var oauthPath = flag.String("c", "", "The path to the OAuth config json file to use")
@@ -38,33 +38,33 @@ func ParseGlobalFlags() (GlobalFlags) {
 
 	flag.Parse()
 
-	if(*help == true) {
+	if *help == true {
 		flag.PrintDefaults()
 	}
 
 	verb = VERB_UNKNOWN
 
-	if(*verbList) {
+	if *verbList {
 		verb = VERB_LIST
 	}
-	if(*verbPush) {
+	if *verbPush {
 		verb = VERB_PUSH
 	}
 
-	return GlobalFlags {
+	return GlobalFlags{
 		OAuthConfigPath: *oauthPath,
-		TokenPath: *tokenPath,
-		Verb: verb,
+		TokenPath:       *tokenPath,
+		Verb:            verb,
 	}
 }
 
-func getUserTokenPath() (string) {
+func getUserTokenPath() string {
 
 	var currentUser *user.User
 	var err error
 
 	currentUser, err = user.Current()
-	if(err != nil) {
+	if err != nil {
 		return ""
 	}
 
