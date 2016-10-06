@@ -1,5 +1,7 @@
 # gdriver
 
+[![Build Status](https://travis-ci.org/Knetic/gdriver.svg?branch=master)](https://travis-ci.org/Knetic/gdriver)
+
 Allows shell control of Google Drive.
 
 ## Usage
